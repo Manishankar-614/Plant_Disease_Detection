@@ -2,42 +2,27 @@ import tensorflow as tf
 from tensorflow.keras import models
 import numpy as np
 from PIL import Image
+import sqlite3
 from datetime import datetime
 from pathlib import Path
 import io
 import json
 from flask import Flask, render_template, request, jsonify, g, send_file
-import time
-import os
-from flask_sqlalchemy import SQLAlchemy  # <-- NEW: Import SQLAlchemy
+import time  # <-- IMPORT TIME
 
 # --- 1. APP & MODEL CONFIGURATION ---
-
+# (No changes here)
 app = Flask(__name__)
-
-# --- NEW: SQLAlchemy Database Configuration ---
-# It reads the DATABASE_URL from your Render environment
-db_url = os.environ.get('DATABASE_URL')
-if db_url and db_url.startswith("postgres://"):
-    db_url = db_url.replace("postgres://", "postgresql://", 1) # SQLAlchemy format
-
-app.config['SQLALCHEMY_DATABASE_URI'] = db_url or f"sqlite:///{Path(__file__).resolve().parent / 'history.db'}"
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
-db = SQLAlchemy(app)
-# --- End of Change ---
-
-
 BASE_DIR = Path(__file__).resolve().parent
 MODEL_DIR = BASE_DIR / "model_output_multi"
 MODEL_PATH = MODEL_DIR / "final_multitask_model.h5"
 DISEASE_LABEL_PATH = MODEL_DIR / "disease_labels.json"
 PART_LABEL_PATH = MODEL_DIR / "part_labels.json"
+DB_PATH = BASE_DIR / "history.db"
 IMG_SIZE = 224
 
-
 # --- 2. MODEL & LABEL LOADING ---
-# (No changes in this section)
+# (No changes here)
 def load_keras_model_and_labels():
     # ... (same as before) ...
     try:
@@ -54,24 +39,73 @@ def load_keras_model_and_labels():
 model, disease_labels, part_labels = load_keras_model_and_labels()
 
 
-# --- 3. DATABASE (NEW: SQLAlchemy Model) ---
+# --- 3. DATABASE FUNCTIONS ---
 
-class History(db.Model):
-    """Defines the History database table."""
-    id = db.Column(db.Integer, primary_key=True)
-    timestamp = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    image_blob = db.Column(db.LargeBinary, nullable=False)
-    part_prediction = db.Column(db.String(100))
-    part_confidence = db.Column(db.Float)
-    disease_prediction = db.Column(db.String(100))
-    disease_confidence = db.Column(db.Float)
-    inference_time = db.Column(db.Float)
+def get_db():
+    # (No changes here)
+    if 'db' not in g:
+        g.db = sqlite3.connect(DB_PATH, detect_types=sqlite3.PARSE_DECLTYPES)
+        g.db.row_factory = sqlite3.Row
+    return g.db
 
-    def __repr__(self):
-        return f'<History {self.id} {self.part_prediction}>'
+@app.teardown_appcontext
+def close_db(e=None):
+    # (No changes here)
+    db = g.pop('db', None)
+    if db is not None:
+        db.close()
+
+def init_db():
+    """Initializes the database and creates the 'history' table."""
+    try:
+        with app.app_context():
+            db = get_db()
+            cursor = db.cursor()
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS history (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp TIMESTAMP NOT NULL,        -- <-- FIX: Changed DATETIME to TIMESTAMP
+                    image_blob BLOB NOT NULL,
+                    part_prediction TEXT,
+                    part_confidence REAL,
+                    disease_prediction TEXT,
+                    disease_confidence REAL,
+                    inference_time REAL                 -- <-- NEW: Added inference time
+                )
+            """)
+            db.commit()
+            print("Database initialized.")
+    except Exception as e:
+        print(f"Error initializing database: {e}")
+
+def add_to_history(image_bytes, part_pred, part_conf, disease_pred, disease_conf, inf_time): # <-- NEW: Added inf_time
+    """Adds a new prediction record to the database."""
+    try:
+        db = get_db()
+        cursor = db.cursor()
+        timestamp = datetime.now()
+        cursor.execute("""
+            INSERT INTO history (timestamp, image_blob, part_prediction, part_confidence, disease_prediction, disease_confidence, inference_time)
+            VALUES (?, ?, ?, ?, ?, ?, ?) -- <-- NEW: Added 7th placeholder
+        """, (timestamp, image_bytes, part_pred, part_conf, disease_pred, disease_conf, inf_time)) # <-- NEW: Added inf_time
+        db.commit()
+    except Exception as e:
+        print(f"Error saving to history: {e}")
+
+def get_history():
+    # (No changes here - this function is already correct)
+    try:
+        db = get_db()
+        cursor = db.cursor()
+        cursor.execute("SELECT * FROM history ORDER BY timestamp DESC")
+        records = cursor.fetchall()
+        return records
+    except Exception as e:
+        print(f"Error fetching history: {e}")
+        return []
 
 # --- 4. IMAGE PREPROCESSING ---
-# (No changes in this section)
+# (No changes here)
 def preprocess_image(image):
     img = image.convert('RGB').resize((IMG_SIZE, IMG_SIZE))
     img_array = tf.keras.preprocessing.image.img_to_array(img)
@@ -80,19 +114,14 @@ def preprocess_image(image):
     return preprocessed_img
 
 # --- 5. FLASK ROUTES (THE PAGES) ---
-
+# (No changes in these routes)
 @app.route("/")
 def index():
     return render_template("index.html")
 
 @app.route("/history")
 def history_page():
-    """Renders the history page with records from the DB."""
-    try:
-        records = History.query.order_by(History.timestamp.desc()).all()
-    except Exception as e:
-        print(f"Error fetching history: {e}")
-        records = [] # Send an empty list on error
+    records = get_history()
     return render_template("history.html", records=records)
 
 @app.route("/about")
@@ -103,6 +132,10 @@ def about_page():
 
 @app.route("/predict", methods=["POST"])
 def predict():
+    """
+    Handles the image upload, performs prediction, saves to history,
+    and returns the result as JSON.
+    """
     if model is None or 'file' not in request.files:
         return jsonify({"error": "Model not loaded or no file provided"}), 400
 
@@ -116,11 +149,17 @@ def predict():
         
         preprocessed_img = preprocess_image(image)
         
+        # --- NEW: Start Timer ---
         start_time = time.perf_counter()
-        disease_pred_raw, part_pred_raw = model.predict(preprocessed_img)
-        end_time = time.perf_counter()
-        inference_time_ms = (end_time - start_time) * 1000
         
+        # Predict
+        disease_pred_raw, part_pred_raw = model.predict(preprocessed_img)
+        
+        # --- NEW: End Timer ---
+        end_time = time.perf_counter()
+        inference_time_ms = (end_time - start_time) * 1000 # Calculate in milliseconds
+        
+        # Process Part Prediction
         p_index = np.argmax(part_pred_raw[0])
         p_confidence = float(part_pred_raw[0][p_index] * 100)
         p_name = part_labels[p_index]
@@ -130,7 +169,7 @@ def predict():
             "part_confidence": p_confidence,
             "disease_name": "N/A",
             "disease_confidence": 0.0,
-            "inference_time_ms": inference_time_ms
+            "inference_time_ms": inference_time_ms  # <-- NEW: Add to result
         }
         
         if p_name != "Not_a_plant":
@@ -140,42 +179,39 @@ def predict():
             result["disease_name"] = d_name
             result["disease_confidence"] = d_confidence
 
-        # --- NEW: Save to History with SQLAlchemy ---
-        new_record = History(
-            image_blob=image_bytes,
-            part_prediction=result["part_name"],
-            part_confidence=result["part_confidence"],
-            disease_prediction=result["disease_name"],
-            disease_confidence=result["disease_confidence"],
-            inference_time=result["inference_time_ms"]
+        # Save to history
+        add_to_history(
+            image_bytes, 
+            result["part_name"], 
+            result["part_confidence"], 
+            result["disease_name"], 
+            result["disease_confidence"],
+            result["inference_time_ms"] # <-- NEW: Pass to history
         )
-        db.session.add(new_record)
-        db.session.commit()
-        # --- End of Change ---
         
         return jsonify(result)
 
     except Exception as e:
-        db.session.rollback() # Rollback in case of error
         print(f"Error during prediction: {e}")
         return jsonify({"error": str(e)}), 500
 
 @app.route('/history/image/<int:record_id>')
 def get_history_image(record_id):
-    """Fetches a specific image from the database history."""
+    # (No changes here)
     try:
-        record = History.query.get(record_id)
-        if record:
-            return send_file(io.BytesIO(record.image_blob), mimetype='image/png')
+        db = get_db()
+        cursor = db.cursor()
+        cursor.execute("SELECT image_blob FROM history WHERE id = ?", (record_id,))
+        blob = cursor.fetchone()
+        
+        if blob:
+            return send_file(io.BytesIO(blob['image_blob']), mimetype='image/png')
         return "Image not found", 404
     except Exception as e:
         print(f"Error fetching image: {e}")
         return "Error fetching image", 500
 
 # --- 7. RUN THE APP ---
-
-with app.app_context():
-    db.create_all() # This creates the tables based on your models
-
-# We removed the if __name__ == "__main__": block
-# Gunicorn will run the 'app' object directly.
+if __name__ == "__main__":
+    init_db()
+    app.run(debug=True)

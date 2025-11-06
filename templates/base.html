@@ -10,14 +10,14 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-</head>
+    
+    </head>
 <body>
     <nav class="navbar">
         <div class="container">
             <a class="nav-brand" href="{{ url_for('index') }}">🌿 Plant Classifier</a>
             <ul class="nav-links">
                 <li><a href="{{ url_for('index') }}">🔍 Predict</a></li>
-                <li><a href="{{ url_for('history_page') }}">📜 History</a></li>
                 <li><a href="{{ url_for('about_page') }}">ℹ️ About</a></li>
             </ul>
         </div>
@@ -30,5 +30,6 @@
     <footer>
         <p>Plant Classifier Project</p>
     </footer>
-</body>
+
+    </body>
 </html>

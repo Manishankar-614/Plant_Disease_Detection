@@ -89,7 +89,7 @@ h1, h2, h3 {
     padding: 2rem 2.5rem;
     border-radius: 12px;
     box-shadow: var(--shadow);
-    max-width: 1000px; /* MODIFIED: Widen container for side-by-side */
+    max-width: 1000px;
     margin: 2rem auto;
 }
 .predict-container > p {
@@ -98,7 +98,7 @@ h1, h2, h3 {
     color: var(--text-muted);
 }
 
-/* --- NEW: Responsive Layout --- */
+/* --- Responsive Layout --- */
 .predict-layout {
     display: grid;
     grid-template-columns: 1fr 1fr; /* Two equal columns */
@@ -123,7 +123,7 @@ h1, h2, h3 {
     margin-right: 0.5rem;
 }
 
-/* --- NEW: Mobile Responsiveness --- */
+/* --- Mobile Responsiveness --- */
 @media (max-width: 800px) {
     .predict-layout {
         grid-template-columns: 1fr; /* Stack columns on mobile */
@@ -135,14 +135,14 @@ h1, h2, h3 {
 /* --- End Responsive Layout --- */
 
 
-/* --- NEW: Attractive File Input --- */
+/* --- Attractive File Input --- */
 #file-input { display: none; }
 .file-label {
     background-color: var(--bg-color);
     border: 2px dashed var(--border-color);
     border-radius: 8px;
     padding: 1.5rem;
-    display: flex; /* Use flex to align icon and text */
+    display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
@@ -150,7 +150,7 @@ h1, h2, h3 {
     transition: all 0.3s ease;
     font-weight: 500;
     color: var(--text-muted);
-    height: 150px; /* Give it a fixed height */
+    height: 150px;
 }
 .file-label:hover {
     border-color: var(--primary-color);
@@ -163,7 +163,7 @@ h1, h2, h3 {
     margin-bottom: 0.5rem;
 }
 
-/* --- NEW: Attractive Buttons --- */
+/* --- Attractive Buttons --- */
 .btn {
     padding: 14px 28px;
     border: none;
@@ -206,10 +206,10 @@ h1, h2, h3 {
     display: flex;
     flex-direction: column;
     align-items: center;
-    height: 100%; /* Make it fill the column */
+    height: 100%;
 }
 #start-cam-btn {
-    margin-top: 0; /* No margin needed */
+    margin-top: 0;
 }
 #webcam-feed {
     width: 100%;
@@ -270,42 +270,7 @@ h1, h2, h3 {
     100% { transform: rotate(360deg); }
 }
 
-/* History Page */
-.history-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-    gap: 20px;
-}
-.history-card {
-    background-color: var(--card-bg);
-    border-radius: 10px;
-    box-shadow: var(--shadow);
-    overflow: hidden;
-    transition: all 0.3s ease;
-    border: 1px solid var(--border-color);
-}
-.history-card:hover {
-    transform: translateY(-5px);
-    box-shadow: var(--shadow-hover);
-}
-.history-card img {
-    width: 100%;
-    height: 150px;
-    object-fit: cover;
-}
-.history-card-content { padding: 1rem; }
-.history-card-content p {
-    margin: 0.5rem 0;
-    font-size: 0.9rem;
-    color: var(--text-color);
-}
-.history-card-content p:last-child { margin-bottom: 0; }
-.history-card-content small {
-    color: var(--text-muted);
-    font-size: 0.8rem;
-    display: block;
-    margin-bottom: 0.5rem;
-}
+/* --- History Styles Removed --- */
 
 /* About Page */
 .about-page {
