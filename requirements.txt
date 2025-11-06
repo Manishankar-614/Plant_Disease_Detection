@@ -1,5 +1,4 @@
-tensorflow-cpu  # <-- USE THIS. It's smaller than full TF but has softmax.
-# tflite-runtime # <-- This is too minimal for us.
+tensorflow
 numpy
 scikit-learn
 Pillow

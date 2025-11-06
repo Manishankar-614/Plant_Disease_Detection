@@ -1,56 +1,42 @@
+import tensorflow as tf
+from tensorflow.keras import models
 import numpy as np
 from PIL import Image
+from datetime import datetime
 from pathlib import Path
 import io
 import json
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, g, send_file
 import time
 import os
-import traceback
-import tflite_runtime.interpreter as tflite  # <-- NEW: Import TFLite
+import traceback  # For better error logging
 
 # --- 1. APP CONFIGURATION ---
 app = Flask(__name__)
 BASE_DIR = Path(__file__).resolve().parent
-
-# --- UPDATED: Load TFLite model ---
-TFLITE_MODEL_PATH = BASE_DIR / "model.tflite"
-# We must re-load the labels. They are no longer in the .tflite model
-DISEASE_LABEL_PATH = BASE_DIR / "model_output_multi" / "disease_labels.json"
-PART_LABEL_PATH = BASE_DIR / "model_output_multi" / "part_labels.json"
+MODEL_DIR = BASE_DIR / "model_output_multi"
+MODEL_PATH = MODEL_DIR / "final_multitask_model.h5"
+DISEASE_LABEL_PATH = MODEL_DIR / "disease_labels.json"
+PART_LABEL_PATH = MODEL_DIR / "part_labels.json"
 IMG_SIZE = 224
 
 
-# --- 2. MODEL LOADING (NEW GLOBAL TFLite METHOD) ---
+# --- 2. MODEL LOADING (NEW GLOBAL METHOD) ---
+# We load the model and labels into global variables ONCE when the app file is
+# first read. This is critical for Gunicorn's --preload flag.
 try:
-    # Load TFLite model and allocate tensors
-    GLOBAL_INTERPRETER = tflite.Interpreter(model_path=str(TFLITE_MODEL_PATH))
-    GLOBAL_INTERPRETER.allocate_tensors()
-    
-    # Get input and output details
-    GLOBAL_INPUT_DETAILS = GLOBAL_INTERPRETER.get_input_details()
-    GLOBAL_OUTPUT_DETAILS = GLOBAL_INTERPRETER.get_output_details()
-    
-    # Load labels
+    GLOBAL_MODEL = models.load_model(MODEL_PATH)
     with open(DISEASE_LABEL_PATH, "r") as f:
         GLOBAL_DISEASE_LABELS = json.load(f)
     with open(PART_LABEL_PATH, "r") as f:
         GLOBAL_PART_LABELS = json.load(f)
-        
-    # Find which output is which (safer than relying on order)
-    if "disease_out" in GLOBAL_OUTPUT_DETAILS[0]['name']:
-        GLOBAL_DISEASE_OUTPUT_INDEX = GLOBAL_OUTPUT_DETAILS[0]['index']
-        GLOBAL_PART_OUTPUT_INDEX = GLOBAL_OUTPUT_DETAILS[1]['index']
-    else:
-        GLOBAL_DISEASE_OUTPUT_INDEX = GLOBAL_OUTPUT_DETAILS[1]['index']
-        GLOBAL_PART_OUTPUT_INDEX = GLOBAL_OUTPUT_DETAILS[0]['index']
-        
-    print("--- TFLite Model and labels loaded successfully. ---")
-
+    print("--- Model and labels loaded successfully into GLOBAL scope. ---")
 except Exception as e:
-    print(f"--- FATAL ERROR: Could not load TFLite model: {e} ---")
+    print(f"--- FATAL ERROR: Could not load model on startup: {e} ---")
     traceback.print_exc()
-    GLOBAL_INTERPRETER = None
+    GLOBAL_MODEL = None
+    GLOBAL_DISEASE_LABELS = []
+    GLOBAL_PART_LABELS = []
 # --- End of Change ---
 
 
@@ -63,14 +49,9 @@ def preprocess_image(image):
     """Preprocesses the uploaded image for the model."""
     img = image.convert('RGB').resize((IMG_SIZE, IMG_SIZE))
     img_array = tf.keras.preprocessing.image.img_to_array(img)
-    img_array = tf.expand_dims(img_array, 0)
-    
-    # --- UPDATED: Manually normalize for TFLite ---
-    # MobileNetV2 expects inputs from -1 to 1
-    img_array = (img_array / 127.5) - 1.0
-    
-    # TFLite models often expect float32
-    return img_array.astype(np.float32)
+    img_array = tf.expand_dims(img_array, 0)  # Create a batch
+    preprocessed_img = tf.keras.applications.mobilenet_v2.preprocess_input(img_array)
+    return preprocessed_img
 
 # --- 5. FLASK ROUTES (THE PAGES) ---
 
@@ -92,7 +73,8 @@ def predict():
     Handles the image upload, performs prediction,
     and returns the result as JSON.
     """
-    if GLOBAL_INTERPRETER is None:
+    # CHANGED: Check the new global variable
+    if GLOBAL_MODEL is None:
         return jsonify({"error": "Model is not loaded. Please check server logs."}), 500
     
     if 'file' not in request.files:
@@ -109,25 +91,14 @@ def predict():
         preprocessed_img = preprocess_image(image)
         
         start_time = time.perf_counter()
-        
-        # --- NEW TFLite Prediction ---
-        GLOBAL_INTERPRETER.set_tensor(GLOBAL_INPUT_DETAILS[0]['index'], preprocessed_img)
-        GLOBAL_INTERPRETER.invoke() # Run inference
-        
-        # Get results
-        disease_pred_raw = GLOBAL_INTERPRETER.get_tensor(GLOBAL_DISEASE_OUTPUT_INDEX)
-        part_pred_raw = GLOBAL_INTERPRETER.get_tensor(GLOBAL_PART_OUTPUT_INDEX)
-        # --- End TFLite Prediction ---
-        
+        # CHANGED: Use the new global model
+        disease_pred_raw, part_pred_raw = GLOBAL_MODEL.predict(preprocessed_img)
         end_time = time.perf_counter()
         inference_time_ms = (end_time - start_time) * 1000
         
-        # Apply softmax (TFLite models output raw logits)
-        part_probs = tf.nn.softmax(part_pred_raw[0]).numpy()
-        disease_probs = tf.nn.softmax(disease_pred_raw[0]).numpy()
-
-        p_index = np.argmax(part_probs)
-        p_confidence = float(part_probs[p_index] * 100)
+        # CHANGED: Use the new global labels
+        p_index = np.argmax(part_pred_raw[0])
+        p_confidence = float(part_pred_raw[0][p_index] * 100)
         p_name = GLOBAL_PART_LABELS[p_index]
         
         result = {
@@ -139,8 +110,9 @@ def predict():
         }
         
         if p_name != "Not_a_plant":
-            d_index = np.argmax(disease_probs)
-            d_confidence = float(disease_probs[d_index] * 100)
+            d_index = np.argmax(disease_pred_raw[0])
+            d_confidence = float(disease_pred_raw[0][d_index] * 100)
+            # CHANGED: Use the new global labels
             d_name = GLOBAL_DISEASE_LABELS[d_index]
             result["disease_name"] = d_name
             result["disease_confidence"] = d_confidence
@@ -154,5 +126,6 @@ def predict():
         return jsonify({"error": str(e)}), 500
 
 # --- 7. RUN THE APP ---
+# This block is only for local testing ("python app.py")
 if __name__ == "__main__":
     app.run(debug=True)
