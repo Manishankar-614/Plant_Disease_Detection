@@ -1,7 +1,10 @@
+# requirements.txt
 tensorflow
 numpy
 scikit-learn
 Pillow
 Flask
-opencv-python
 gunicorn
+opencv-python
+Flask-SQLAlchemy  # <-- NEW: Manages the database
+psycopg2-binary   # <-- NEW: The driver for PostgreSQL
