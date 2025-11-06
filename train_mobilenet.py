@@ -1,8 +1,10 @@
 """
-train_multitask.py
-Trains a MobileNetV2-based multi-task model:
- - head 1 => disease classification (many classes)
- - head 2 => plant part classification (Fruits / Leaves / Stems)
+train_multitask.py (Upgraded for Accuracy)
+
+Trains a MobileNetV2-based multi-task model with:
+ - Advanced data augmentation (rotation, zoom, brightness)
+ - Deeper fine-tuning for specialization
+ - Data imbalance checking
 
 This script reads from a pre-split dataset folder structured as:
 dataset_split/
@@ -17,9 +19,6 @@ dataset_split/
     │   ├── Leaves/
     │   └── Stems/
     └── test/ (Note: this script only uses train and val)
-
-Place this script next to your dataset_split/ folder and run:
-python train_multitask_split.py
 """
 
 import time
@@ -29,23 +28,20 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.keras import layers, models
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
-# No train_test_split needed
 from PIL import Image
 
 # ---------------- AUTO CONFIG ----------------
 BASE_DIR = Path(__file__).resolve().parent
-# ✅ POINT TO THE SPLIT DATASET
 DATASET_DIR = BASE_DIR / "dataset_split"
 TRAIN_DIR = DATASET_DIR / "train"
 VAL_DIR = DATASET_DIR / "val"
-# TEST_DIR = DATASET_DIR / "test" # Not used in this training script
 
 MODEL_OUT = BASE_DIR / "model_output_multi"
 MODEL_OUT.mkdir(parents=True, exist_ok=True)
 
 BATCH_SIZE = 32
 IMG_SIZE = 224
-EPOCHS = 20
+EPOCHS = 20  # Initial training epochs
 RANDOM_SEED = 42
 
 print("=" * 60)
@@ -64,6 +60,8 @@ def build_label_maps(train_dir):
     """
     Scans the training directory to build a complete, sorted list
     of all disease and part classes.
+    
+    --- NEW: Also prints a count of images per class. ---
     """
     if not train_dir.exists():
         raise SystemExit(f"Training folder not found: {train_dir}")
@@ -71,12 +69,45 @@ def build_label_maps(train_dir):
     part_name_list = sorted([p.name for p in train_dir.iterdir() if p.is_dir()])
     disease_name_list = set()
     
+    # --- NEW: Diagnostic counters ---
+    print("\n" + "="*50)
+    print(" DATASET CLASS COUNT (TRAIN) ".center(50, "-"))
+    disease_counts = {}
+    part_counts = {}
+    # --- End New ---
+    
     for part_dir in train_dir.iterdir():
         if not part_dir.is_dir():
             continue
+            
+        # --- NEW ---
+        part_file_count = 0
+        part_name = part_dir.name
+        # --- End New ---
+        
         for disease_dir in part_dir.iterdir():
             if disease_dir.is_dir():
-                disease_name_list.add(disease_dir.name)
+                disease_name = disease_dir.name
+                disease_name_list.add(disease_name)
+                
+                # --- NEW ---
+                count = len([p for p in disease_dir.iterdir() if p.suffix.lower() in ALLOWED_EXT])
+                part_file_count += count
+                disease_counts[f"{part_name}/{disease_name}"] = count
+                # --- End New ---
+                
+        part_counts[part_name] = part_file_count
+
+    # --- NEW: Print the counts ---
+    print("\nPart Counts:")
+    for name, count in part_counts.items():
+        print(f"  - {name}: {count} images")
+        
+    print("\nDisease Counts (by Part):")
+    for name, count in sorted(disease_counts.items()):
+        print(f"  - {name}: {count} images")
+    print("="*50 + "\n")
+    # --- End New ---
     
     disease_name_list = sorted(list(disease_name_list))
     
@@ -94,6 +125,7 @@ def load_split_data(split_dir, disease_map, part_map):
     Loads all image paths and corresponding labels for a given split
     (e.g., train or val) using the pre-built label maps.
     """
+    # (This function is unchanged)
     image_paths = []
     disease_labels = []
     part_labels = []
@@ -140,6 +172,7 @@ if len(val_paths) == 0:
 # ---------------- VALIDATE IMAGES ----------------
 def validate_image_data(paths, d_labels, p_labels):
     """Helper function to filter out corrupted images."""
+    # (This function is unchanged)
     valid_paths, valid_d, valid_p, skipped = [], [], [], []
     for p, d, pt in zip(paths.tolist(), d_labels.tolist(), p_labels.tolist()):
         try:
@@ -163,37 +196,75 @@ train_paths, train_d, train_p = validate_image_data(train_paths, train_d, train_
 print("Validating validation images...")
 val_paths, val_d, val_p = validate_image_data(val_paths, val_d, val_p)
 
-# ---------------- OLD TRAIN/VAL SPLIT REMOVED ----------------
-# The data is already split, so no train_test_split is needed.
-
 print(f"Train images: {len(train_paths)}")
 print(f"Validation images: {len(val_paths)}")
 
 
-# ---------------- BUILD tf.data PIPELINE ----------------
+# ---------------- BUILD tf.data PIPELINE (UPGRADED) ----------------
 AUTOTUNE = tf.data.AUTOTUNE
 
 def load_and_preprocess(path, d_label, p_label):
+    """Loads and resizes image. Preprocessing is applied later."""
     img = tf.io.read_file(path)
     img = tf.image.decode_image(img, channels=3, expand_animations=False)
     img = tf.image.resize(img, [IMG_SIZE, IMG_SIZE])
-    img = tf.keras.applications.mobilenet_v2.preprocess_input(img)
+    # Preprocessing is applied *after* augmentation
     return img, {"disease_out": tf.cast(d_label, tf.int32),
                  "part_out": tf.cast(p_label, tf.int32)}
 
+# --- NEW: Advanced Data Augmentation Function ---
+def augment_data(image, labels):
+    """Applies random augmentations to the training images."""
+    image = tf.image.random_flip_left_right(image)
+    
+    # Add random rotation (90, 180, 270 degrees)
+    image = tf.image.rot90(image, k=tf.random.uniform(shape=[], minval=0, maxval=4, dtype=tf.int32))
+    
+    # Add random brightness
+    image = tf.image.random_brightness(image, max_delta=0.1) # 10% brightness change
+    
+    # Add random contrast
+    image = tf.image.random_contrast(image, lower=0.9, upper=1.1)
+    
+    # Add random zoom (crops to 90-100% and resizes)
+    # This forces the model to find features even when not perfectly centered.
+    image = tf.image.random_crop(image, size=[int(IMG_SIZE*0.9), int(IMG_SIZE*0.9), 3])
+    image = tf.image.resize(image, [IMG_SIZE, IMG_SIZE])
+    
+    return image, labels
+# --- End New Function ---
+
+
 def make_dataset(paths, d_labels, p_labels, training=True):
+    """Creates an efficient, augmented tf.data.Dataset."""
     ds = tf.data.Dataset.from_tensor_slices((paths, d_labels, p_labels))
+    
+    # Load and resize images
     ds = ds.map(lambda p, d, pt: load_and_preprocess(p, d, pt), num_parallel_calls=AUTOTUNE)
+    
     if training:
         ds = ds.shuffle(2048, seed=RANDOM_SEED)
-        ds = ds.map(lambda x, y: (tf.image.random_flip_left_right(x), y), num_parallel_calls=AUTOTUNE)
-    ds = ds.batch(BATCH_SIZE).prefetch(AUTOTUNE)
+        
+        # --- UPDATED: Apply augmentations here ---
+        ds = ds.map(augment_data, num_parallel_calls=AUTOTUNE)
+        
+    ds = ds.batch(BATCH_SIZE)
+    
+    # --- UPDATED: Apply preprocessing *after* augmentation ---
+    # This applies MobileNetV2's required normalization to the batch.
+    ds = ds.map(
+        lambda x, y: (tf.keras.applications.mobilenet_v2.preprocess_input(x), y), 
+        num_parallel_calls=AUTOTUNE
+    )
+    
+    ds = ds.prefetch(AUTOTUNE)
     return ds
 
 train_ds = make_dataset(train_paths, train_d, train_p, training=True)
 val_ds = make_dataset(val_paths, val_d, val_p, training=False)
 
 # ---------------- MODEL ----------------
+# (This section is unchanged, still using MobileNetV2)
 base_model = tf.keras.applications.MobileNetV2(
     input_shape=(IMG_SIZE, IMG_SIZE, 3),
     include_top=False,
@@ -233,18 +304,19 @@ model.compile(
 model.summary()
 
 # ---------------- CALLBACKS ----------------
+# (This section is unchanged)
 stamp = time.strftime("%Y%m%d-%H%M%S")
 ckpt_path = MODEL_OUT / f"best_multitask_{stamp}.h5"
 
 cb_ckpt = ModelCheckpoint(
     ckpt_path,
     save_best_only=True,
-    monitor="val_disease_out_loss",
+    monitor="val_disease_out_loss", # Focus on the disease loss
     mode="min"
 )
 
 cb_early = EarlyStopping(
-    monitor="val_disease_out_loss",
+    monitor="val_disease_out_loss", # Focus on the disease loss
     patience=6,
     restore_best_weights=True,
     mode="min"
@@ -258,14 +330,26 @@ history = model.fit(
     callbacks=[cb_ckpt, cb_early]
 )
 
-# ---------------- OPTIONAL: FINE-TUNE ----------------
+# ---------------- OPTIONAL: FINE-TUNE (UPGRADED) ----------------
 UNFREEZE_FOR_FINETUNE = True
 if UNFREEZE_FOR_FINETUNE:
+    print("\nStarting fine-tuning...")
+    
     base_model.trainable = True
-    for layer in base_model.layers[:-50]:
+    
+    # --- UPDATED: Unfreeze more layers ---
+    # MobileNetV2 has 154 layers. Let's unfreeze from layer 90 onwards.
+    # This lets the model re-learn more complex features
+    # specific to your plants.
+    fine_tune_at = 90 
+    
+    print(f"Unfreezing all layers from layer {fine_tune_at} onwards...")
+    
+    for layer in base_model.layers[:fine_tune_at]:
         layer.trainable = False
+        
     model.compile(
-        optimizer=tf.keras.optimizers.Adam(1e-5),
+        optimizer=tf.keras.optimizers.Adam(1e-5), # Use a very low learning rate
         loss={
             "disease_out": "sparse_categorical_crossentropy",
             "part_out": "sparse_categorical_crossentropy"
@@ -275,15 +359,25 @@ if UNFREEZE_FOR_FINETUNE:
             "part_out": ["accuracy"]
         }
     )
-    print("Starting fine-tuning with reduced LR...")
+    
+    # --- UPDATED: Train for more epochs ---
+    # We give it 15 more epochs, but EarlyStopping will
+    # stop it if it doesn't improve for 6 epochs.
+    fine_tune_epochs = 15
+    total_epochs = EPOCHS + fine_tune_epochs
+    
+    print(f"Fine-tuning with reduced LR for {fine_tune_epochs} more epochs...")
+    
     history_ft = model.fit(
         train_ds,
         validation_data=val_ds,
-        epochs=5,
+        epochs=total_epochs,
+        initial_epoch=EPOCHS, # Start from where we left off
         callbacks=[cb_ckpt, cb_early]
     )
 
 # ---------------- SAVE MODEL ----------------
+# (This section is unchanged)
 final_model_path = MODEL_OUT / "final_multitask_model.h5"
 model.save(final_model_path)
 print(f"Saved model: {final_model_path}")
