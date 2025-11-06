@@ -1,5 +1,3 @@
-# .gitignore
-
 # Python virtual environment
 .venv/
 venv/
@@ -9,9 +7,16 @@ venv/
 __pycache__/
 *.pyc
 
-# Database file (we don't want to upload history)
+# Dataset folder
+dataset_split/
+
+# Database file
 *.db
 history.db
 
-# Dataset folder (should always be ignored)
-dataset_split/
+# --- UPDATED ---
+# Ignore the original H5 model directory
+model_output_multi/
+*.h5
+*.json
+# ---
