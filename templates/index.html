@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+{% block title %}Predict{% endblock %}
+
+{% block content %}
+<div class="predict-container">
+    <h1>Classify an Image</h1>
+    <p>Upload a file or use your camera to get a live prediction.</p>
+
+    <div class="predict-layout">
+        
+        <div class="column" id="upload-column">
+            <h3><span class="icon">📤</span> Upload File</h3>
+            <form id="upload-form">
+                <input type="file" id="file-input" accept="image/png, image/jpeg, image/jpg" required>
+                <label for="file-input" class="file-label">
+                    <span class="file-icon">🖼️</span>
+                    <span id="file-label-text">Choose an image...</span>
+                </label>
+                <button type="submit" class="btn btn-primary">Classify Image</button>
+            </form>
+        </div>
+
+        <div class="column" id="scanner-column">
+            <h3><span class="icon">📸</span> Live Scanner</h3>
+            <div class="scanner-ui">
+                <button id="start-cam-btn" class="btn btn-secondary">Start Camera</button>
+                <video id="webcam-feed" class="hidden" playsinline autoplay muted></video>
+                <canvas id="capture-canvas" class="hidden"></canvas> <button id="capture-btn" class="btn btn-primary hidden">Capture & Classify</button>
+                <p id="webcam-error" class="hidden result-error"></p>
+            </div>
+        </div>
+    </div>
+    <div class="result-area">
+        <div id="loading-spinner" class="spinner hidden"></div>
+        
+        <div id="image-preview-container" class="hidden">
+            <img id="image-preview" src="#" alt="Image preview" />
+        </div>
+        
+        <div id="result-container" class="hidden">
+            </div>
+    </div>
+</div>
+
+<script>
+    // --- Constants ---
+    const uploadForm = document.getElementById('upload-form');
+    const fileInput = document.getElementById('file-input');
+    const fileLabelText = document.getElementById('file-label-text');
+    
+    const previewContainer = document.getElementById('image-preview-container');
+    const previewImage = document.getElementById('image-preview');
+    const resultContainer = document.getElementById('result-container');
+    const loadingSpinner = document.getElementById('loading-spinner');
+    
+    // Webcam
+    const startCamBtn = document.getElementById('start-cam-btn');
+    const videoElement = document.getElementById('webcam-feed');
+    const captureBtn = document.getElementById('capture-btn');
+    const captureCanvas = document.getElementById('capture-canvas');
+    const webcamError = document.getElementById('webcam-error');
+    let videoStream = null;
+
+    // --- 1. Webcam Logic ---
+    startCamBtn.addEventListener('click', () => {
+        if (!videoStream) {
+            startWebcam();
+        } else {
+            stopWebcam();
+        }
+    });
+
+    async function startWebcam() {
+        startCamBtn.disabled = true;
+        startCamBtn.textContent = "Starting...";
+        try {
+            videoStream = await navigator.mediaDevices.getUserMedia({ 
+                video: { facingMode: 'environment' } 
+            });
+            videoElement.srcObject = videoStream;
+            videoElement.classList.remove('hidden');
+            captureBtn.classList.remove('hidden');
+            webcamError.classList.add('hidden');
+            startCamBtn.textContent = "Stop Camera";
+        } catch (err) {
+            console.error("Error accessing webcam:", err);
+            try {
+                videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                videoElement.srcObject = videoStream;
+                videoElement.classList.remove('hidden');
+                captureBtn.classList.remove('hidden');
+                webcamError.classList.add('hidden');
+                startCamBtn.textContent = "Stop Camera";
+            } catch (err2) {
+                webcamError.textContent = "Could not access webcam. Please check permissions.";
+                webcamError.classList.remove('hidden');
+                startCamBtn.textContent = "Start Camera";
+            }
+        } finally {
+            startCamBtn.disabled = false;
+        }
+    }
+
+    function stopWebcam() {
+        if (videoStream) {
+            videoStream.getTracks().forEach(track => track.stop());
+            videoStream = null;
+            videoElement.srcObject = null;
+            videoElement.classList.add('hidden');
+            captureBtn.classList.add('hidden');
+            startCamBtn.textContent = "Start Camera";
+        }
+    }
+
+    // --- 2. File Upload Logic ---
+    fileInput.addEventListener('change', () => {
+        if (fileInput.files.length > 0) {
+            fileLabelText.textContent = fileInput.files[0].name;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                previewImage.src = e.target.result;
+                previewContainer.classList.remove('hidden');
+            };
+            reader.readAsDataURL(fileInput.files[0]);
+            resultContainer.classList.add('hidden');
+        }
+    });
+
+    uploadForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (fileInput.files.length === 0) return;
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+        sendPrediction(formData);
+    });
+
+    // --- 3. Webcam Capture Logic ---
+    captureBtn.addEventListener('click', () => {
+        if (!videoStream) return;
+        
+        captureCanvas.width = videoElement.videoWidth;
+        captureCanvas.height = videoElement.videoHeight;
+        
+        const context = captureCanvas.getContext('2d');
+        context.drawImage(videoElement, 0, 0, captureCanvas.width, captureCanvas.height);
+        
+        previewImage.src = captureCanvas.toDataURL('image/png');
+        previewContainer.classList.remove('hidden');
+        
+        captureCanvas.toBlob((blob) => {
+            const formData = new FormData();
+            formData.append('file', blob, 'webcam-capture.png');
+            sendPrediction(formData);
+        }, 'image/png');
+    });
+
+    // --- 4. Shared Prediction Logic ---
+    async function sendPrediction(formData) {
+        // Clear old results and show spinner
+        resultContainer.classList.add('hidden');
+        resultContainer.innerHTML = '';
+        loadingSpinner.classList.remove('hidden');
+        
+        // Hide preview to make space for spinner, or you can keep it
+        // previewContainer.classList.add('hidden'); 
+
+        try {
+            const response = await fetch('/predict', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.error || 'Prediction failed');
+            }
+
+            const data = await response.json();
+            
+            let resultHTML = '';
+            if (data.part_name === 'Not_a_plant') {
+                resultHTML = `
+                    <h2 class="result-warning">Result: Not a Plant</h2>
+                    <p>Confidence: <strong>${data.part_confidence.toFixed(2)}%</strong></p>
+                `;
+            } else {
+                resultHTML = `
+                    <h2 class="result-success">Prediction Result</h2>
+                    <p>Predicted Part: <strong>${data.part_name}</strong> (Confidence: ${data.part_confidence.toFixed(2)}%)</p>
+                    <p>Predicted Disease: <strong>${data.disease_name}</strong> (Confidence: ${data.disease_confidence.toFixed(2)}%)</p>
+                `;
+            }
+            resultHTML += `<p>Inference Time: <strong>${data.inference_time_ms.toFixed(2)} ms</strong></p>`;
+            resultContainer.innerHTML = resultHTML;
+
+        } catch (error) {
+            resultContainer.innerHTML = `<h2 class="result-error">Error</h2><p>${error.message}</p>`;
+        } finally {
+            loadingSpinner.classList.add('hidden');
+            resultContainer.classList.remove('hidden');
+            // Ensure preview is visible with results
+            previewContainer.classList.remove('hidden'); 
+        }
+    }
+</script>
+{% endblock %}

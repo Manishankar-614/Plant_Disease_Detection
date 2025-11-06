@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}About{% endblock %}
+
+{% block content %}
+    <h1>About This Project</h1>
+    <p>This web application uses a multi-task deep learning model to classify images of plants.</p>
+    
+    <h2>1. The Model</h2>
+    <p>The model is a <strong>MobileNetV2</strong>, pre-trained on ImageNet, with two separate classification heads:</p>
+    <ul>
+        <li><strong>Part Head:</strong> Classifies the plant part (e.g., <code>Fruits</code>, <code>Leaves</code>, <code>Stems</code>, or <code>Not_a_plant</code>).</li>
+        <li><strong>Disease Head:</strong> Classifies the specific disease present on the plant part.</li>
+    </ul>
+    
+    <h2>2. The Project</h2>
+    <p>This tool was built to demonstrate the deployment of a multi-output Keras/TensorFlow model using a simple, interactive web GUI.</p>
+    <ul>
+        <li><strong>Backend:</strong> Python, Flask</li>
+        <li><strong>Frontend:</strong> HTML, CSS, JavaScript</li>
+        <li><strong>Database:</strong> SQLite</li>
+    </ul>
+    
+    <h2>3. How it Works</h2>
+    <ol>
+        <li><strong>Upload:</strong> You provide an image via the "Predict" page.</li>
+        <li><strong>Preprocess:</strong> The image is resized to 224x224 and preprocessed for MobileNetV2.</li>
+        <li><strong>Predict:</strong> The Flask backend runs the model, which results in two separate outputs (part and disease).</li>
+        <li><strong>Display:</strong> The JavaScript on the page receives the JSON result and updates the UI.</li>
+        <li><strong>Log:</strong> Every prediction is saved to a local SQLite database, which you can view on the <strong>History</strong> tab.</li>
+    </ol>
+{% endblock %}

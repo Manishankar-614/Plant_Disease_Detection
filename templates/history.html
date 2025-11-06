@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}History{% endblock %}
+
+{% block content %}
+    <h1>Prediction History</h1>
+    
+    <div class="history-grid">
+        {% for record in records %}
+        <div class="history-card">
+            <img src="{{ url_for('get_history_image', record_id=record['id']) }}" alt="History Image">
+            <div class="history-card-content">
+                
+                <small>{{ record['timestamp'].strftime('%Y-%m-%d %H:%M:%S') }}</small>
+                
+                {% if record['part_prediction'] == 'Not_a_plant' %}
+                    <p><strong>Result:</strong> Not a Plant</p>
+                    <p><strong>Confidence:</strong> {{ "%.2f"|format(record['part_confidence']) }}%</p>
+                {% else %}
+                    <p><strong>Part:</strong> {{ record['part_prediction'] }} ({{ "%.2f"|format(record['part_confidence']) }}%)</p>
+                    <p><strong>Disease:</strong> {{ record['disease_prediction'] }} ({{ "%.2f"|format(record['disease_confidence']) }}%)</p>
+                {% endif %}
+                
+                <p><strong>Time:</strong> {{ "%.2f"|format(record['inference_time']) }} ms</p>
+            </div>
+        </div>
+        {% else %}
+            <p>No prediction history found.</p>
+        {% endfor %}
+    </div>
+{% endblock %}

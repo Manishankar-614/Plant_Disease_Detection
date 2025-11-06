@@ -1,0 +1,17 @@
+# .gitignore
+
+# Python virtual environment
+.venv/
+venv/
+*/venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Database file (we don't want to upload history)
+*.db
+history.db
+
+# Dataset folder (should always be ignored)
+dataset_split/
