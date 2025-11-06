@@ -1,4 +1,4 @@
-tensorflow
+tflite-runtime
 numpy
 scikit-learn
 Pillow

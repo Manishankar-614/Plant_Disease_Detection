@@ -15,8 +15,15 @@ dataset_split/
 history.db
 
 # --- UPDATED ---
-# Ignore the original H5 model directory
-model_output_multi/
-*.h5
-*.json
-# ---
+# Ignore the original H5 model directory and files
+# AFTER
+
+# Ignore the contents of the model folder...
+model_output_multi/*
+
+# ...BUT un-ignore (track) this specific file
+!model_output_multi/final_multitask_model.h5
+
+# Keep the label JSONs (we need them)
+!model_output_multi/disease_labels.json
+!model_output_multi/part_labels.json
