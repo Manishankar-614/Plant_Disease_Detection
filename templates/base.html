@@ -1,35 +1,86 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-R">
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Plant Classifier{% endblock %}</title>
+    <title>{% block title %}Plant Disease AI Diagnostics{% endblock %}</title>
     
+    <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
+    <!-- Core Styling -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    
-    </head>
+</head>
 <body>
-    <nav class="navbar">
-        <div class="container">
-            <a class="nav-brand" href="{{ url_for('index') }}">🌿 Plant Classifier</a>
-            <ul class="nav-links">
-                <li><a href="{{ url_for('index') }}">🔍 Predict</a></li>
-                <li><a href="{{ url_for('about_page') }}">ℹ️ About</a></li>
-            </ul>
-        </div>
-    </nav>
+    <div class="ambient-glow glow-top-left"></div>
+    <div class="ambient-glow glow-bottom-right"></div>
 
-    <main class="container">
+    <!-- Navigation Header -->
+    <header class="navbar-wrapper">
+        <nav class="navbar">
+            <div class="nav-container">
+                <a class="nav-brand" href="{{ url_for('index') }}">
+                    <div class="brand-icon-wrapper">
+                        <svg class="brand-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"></path>
+                            <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"></path>
+                        </svg>
+                    </div>
+                    <div class="brand-text">
+                        <span class="brand-title">FloraScan<span class="brand-accent">AI</span></span>
+                        <span class="brand-subtitle">Plant Health Intelligence</span>
+                    </div>
+                </a>
+
+                <div class="nav-status-pill">
+                    <span class="pulse-dot"></span>
+                    <span class="status-label">MobileNetV2 Multi-Task Active</span>
+                </div>
+
+                <ul class="nav-links">
+                    <li>
+                        <a href="{{ url_for('index') }}" class="nav-link {% if request.endpoint == 'index' %}active{% endif %}">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="11" cy="11" r="8"></circle>
+                                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                            </svg>
+                            <span>Diagnose</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('about_page') }}" class="nav-link {% if request.endpoint == 'about_page' %}active{% endif %}">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="12" y1="16" x2="12" y2="12"></line>
+                                <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                            </svg>
+                            <span>Architecture</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Main App Content -->
+    <main class="main-content">
         {% block content %}{% endblock %}
     </main>
 
-    <footer>
-        <p>Plant Classifier Project</p>
+    <!-- Sleek Minimal Footer -->
+    <footer class="footer">
+        <div class="footer-container">
+            <div class="footer-left">
+                <p>🌿 <strong>FloraScan AI</strong> &bull; Deep Learning Plant Part & Disease Detection</p>
+            </div>
+            <div class="footer-right">
+                <span class="badge-tech">TensorFlow</span>
+                <span class="badge-tech">MobileNetV2</span>
+                <span class="badge-tech">Flask API</span>
+            </div>
+        </div>
     </footer>
-
-    </body>
+</body>
 </html>

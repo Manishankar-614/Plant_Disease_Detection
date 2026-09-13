@@ -1,67 +1,523 @@
 {% extends "base.html" %}
-{% block title %}Predict{% endblock %}
+{% block title %}FloraScan AI - Plant Disease & Part Diagnostics{% endblock %}
 
 {% block content %}
-<div class="predict-container">
-    <h1>Classify an Image</h1>
-    <p>Upload a file or use your camera to get a live prediction.</p>
+<!-- Hero Section -->
+<section class="hero-section">
+    <div class="hero-chip">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+        </svg>
+        <span>Next-Gen Botanical Intelligence</span>
+    </div>
+    <h1 class="hero-title">
+        Diagnose Plant Health with <br><span class="gradient-text">Precision Deep Learning</span>
+    </h1>
+    <p class="hero-subtitle">
+        Instant multi-task classification for leaves, stems, and fruits. Identify diseases in milliseconds with treatment guidance.
+    </p>
+</section>
 
-    <div class="predict-layout">
-        
-        <div class="column" id="upload-column">
-            <h3><span class="icon">📤</span> Upload File</h3>
-            <form id="upload-form">
-                <input type="file" id="file-input" accept="image/png, image/jpeg, image/jpg" required>
-                <label for="file-input" class="file-label">
-                    <span class="file-icon">🖼️</span>
-                    <span id="file-label-text">Choose an image...</span>
-                </label>
-                <button type="submit" class="btn btn-primary">Classify Image</button>
-            </form>
-        </div>
+<!-- Mode Selector Tabs -->
+<div class="tabs-container">
+    <div class="tabs-wrapper">
+        <button class="tab-btn active" data-tab="upload-panel">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="17 8 12 3 7 8"></polyline>
+                <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+            <span>Upload Image</span>
+        </button>
+        <button class="tab-btn" data-tab="camera-panel">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                <circle cx="12" cy="13" r="4"></circle>
+            </svg>
+            <span>Live Scanner</span>
+        </button>
+        <button class="tab-btn" data-tab="samples-panel">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                <polyline points="21 15 16 10 5 21"></polyline>
+            </svg>
+            <span>Try Demo Samples</span>
+        </button>
+    </div>
+</div>
 
-        <div class="column" id="scanner-column">
-            <h3><span class="icon">📸</span> Live Scanner</h3>
-            <div class="scanner-ui">
-                <button id="start-cam-btn" class="btn btn-secondary">Start Camera</button>
+<!-- Main Diagnostic Card -->
+<div class="glass-card">
+    
+    <!-- Tab 1: Upload Dropzone -->
+    <div id="upload-panel" class="mode-panel active">
+        <form id="upload-form">
+            <input type="file" id="file-input" accept="image/png, image/jpeg, image/jpg, image/webp">
+            <div class="dropzone" id="dropzone">
+                <div class="dropzone-icon-wrapper">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="16 16 12 12 8 16"></polyline>
+                        <line x1="12" y1="12" x2="12" y2="21"></line>
+                        <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"></path>
+                        <polyline points="16 16 12 12 8 16"></polyline>
+                    </svg>
+                </div>
+                <h3 class="dropzone-title">Drag & drop your plant image here</h3>
+                <p class="dropzone-desc">or click anywhere to browse from your device</p>
+                <div class="file-type-tags">
+                    <span class="tag-pill">JPG</span>
+                    <span class="tag-pill">PNG</span>
+                    <span class="tag-pill">WEBP</span>
+                    <span class="tag-pill">Max 15MB</span>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Tab 2: Camera Scanner HUD -->
+    <div id="camera-panel" class="mode-panel">
+        <div class="camera-viewfinder">
+            <div class="viewfinder-frame" id="viewfinder-frame">
+                <!-- HUD Overlays -->
+                <div class="hud-corner hud-top-left"></div>
+                <div class="hud-corner hud-top-right"></div>
+                <div class="hud-corner hud-bottom-left"></div>
+                <div class="hud-corner hud-bottom-right"></div>
+                <div class="scan-laser hidden" id="scan-laser"></div>
+
+                <!-- Video Element -->
                 <video id="webcam-feed" class="hidden" playsinline autoplay muted></video>
-                <canvas id="capture-canvas" class="hidden"></canvas> <button id="capture-btn" class="btn btn-primary hidden">Capture & Classify</button>
-                <p id="webcam-error" class="hidden result-error"></p>
+                
+                <!-- Placeholder before camera starts -->
+                <div class="viewfinder-placeholder" id="camera-placeholder">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                        <circle cx="12" cy="13" r="4"></circle>
+                    </svg>
+                    <p>Camera is currently idle. Click "Start Camera" below to scan live.</p>
+                </div>
+                
+                <canvas id="capture-canvas" class="hidden"></canvas>
+            </div>
+
+            <p id="webcam-error" class="hidden" style="color: var(--danger-text); font-size: 0.9rem;"></p>
+
+            <div class="camera-controls">
+                <button id="start-cam-btn" class="btn btn-secondary">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                    </svg>
+                    <span>Start Camera</span>
+                </button>
+                <button id="capture-btn" class="btn btn-primary hidden">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                    <span>Capture & Diagnose</span>
+                </button>
             </div>
         </div>
     </div>
-    <div class="result-area">
-        <div id="loading-spinner" class="spinner hidden"></div>
-        
-        <div id="image-preview-container" class="hidden">
-            <img id="image-preview" src="#" alt="Image preview" />
-        </div>
-        
-        <div id="result-container" class="hidden">
+
+    <!-- Tab 3: Demo Samples Grid -->
+    <div id="samples-panel" class="mode-panel">
+        <p class="samples-intro">Select any sample photo below for instant classification testing:</p>
+        <div class="samples-grid">
+            <div class="sample-card" data-sample-src="{{ url_for('static', filename='samples/sample_leaf.jpg') }}">
+                <div class="sample-img-wrapper">
+                    <img src="{{ url_for('static', filename='samples/sample_leaf.jpg') }}" alt="Sample Leaf" loading="lazy">
+                    <div class="sample-overlay">⚡ Test Sample</div>
+                </div>
+                <div class="sample-info">
+                    <span class="sample-name">Sample Specimen A</span>
+                    <span class="sample-tag">Leaf Specimen</span>
+                </div>
             </div>
+
+            <div class="sample-card" data-sample-src="{{ url_for('static', filename='samples/sample_fruit.jpg') }}">
+                <div class="sample-img-wrapper">
+                    <img src="{{ url_for('static', filename='samples/sample_fruit.jpg') }}" alt="Sample Fruit" loading="lazy">
+                    <div class="sample-overlay">⚡ Test Sample</div>
+                </div>
+                <div class="sample-info">
+                    <span class="sample-name">Sample Specimen B</span>
+                    <span class="sample-tag">Fruit Specimen</span>
+                </div>
+            </div>
+
+            <div class="sample-card" data-sample-src="{{ url_for('static', filename='samples/sample_disease.jpg') }}">
+                <div class="sample-img-wrapper">
+                    <img src="{{ url_for('static', filename='samples/sample_disease.jpg') }}" alt="Sample Disease" loading="lazy">
+                    <div class="sample-overlay">⚡ Test Sample</div>
+                </div>
+                <div class="sample-info">
+                    <span class="sample-name">Sample Specimen C</span>
+                    <span class="sample-tag">Pathology Test</span>
+                </div>
+            </div>
+
+            <div class="sample-card" data-sample-src="{{ url_for('static', filename='samples/sample_canker.jpg') }}">
+                <div class="sample-img-wrapper">
+                    <img src="{{ url_for('static', filename='samples/sample_canker.jpg') }}" alt="Sample Stem" loading="lazy">
+                    <div class="sample-overlay">⚡ Test Sample</div>
+                </div>
+                <div class="sample-info">
+                    <span class="sample-name">Sample Specimen D</span>
+                    <span class="sample-tag">Bark / Stem Test</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Animation -->
+    <div id="loading-box" class="loading-box hidden">
+        <div class="scan-loader">
+            <div class="loader-ring"></div>
+            <div class="loader-ring"></div>
+            <div class="loader-ring"></div>
+        </div>
+        <p class="loading-text">Analyzing Neural Pathways...</p>
+        <p class="loading-subtext">Executing MobileNetV2 dual-head inference</p>
+    </div>
+
+    <!-- Diagnostic Results Section -->
+    <div id="result-section" class="result-section hidden">
+        <div class="result-card-header">
+            <h3 class="result-card-title">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--primary-light);">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                </svg>
+                <span>Diagnostic Report</span>
+            </h3>
+            <div id="status-badge-container">
+                <!-- Injected via JS -->
+            </div>
+        </div>
+
+        <div class="result-grid">
+            <!-- Left: Image Preview -->
+            <div class="preview-col">
+                <div class="preview-frame">
+                    <img id="preview-img" src="#" alt="Scanned Plant">
+                </div>
+                <div class="inference-badge">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                    </svg>
+                    <span>Inference Speed: <strong id="inference-time">0 ms</strong></span>
+                </div>
+            </div>
+
+            <!-- Right: Prediction Metrics -->
+            <div class="metrics-col">
+                <!-- Metric 1: Plant Part -->
+                <div class="metric-card">
+                    <div class="metric-header">
+                        <span class="metric-label">Identified Plant Part</span>
+                        <span class="metric-score" id="part-confidence">0.00%</span>
+                    </div>
+                    <div class="metric-value" id="part-name">Analyzing...</div>
+                    <div class="progress-track" style="margin-top: 0.6rem;">
+                        <div class="progress-fill" id="part-progress" style="width: 0%;"></div>
+                    </div>
+                </div>
+
+                <!-- Metric 2: Disease Condition -->
+                <div class="metric-card">
+                    <div class="metric-header">
+                        <span class="metric-label">Pathological Condition</span>
+                        <span class="metric-score" id="disease-confidence">0.00%</span>
+                    </div>
+                    <div class="metric-value" id="disease-name">Analyzing...</div>
+                    <div class="progress-track" style="margin-top: 0.6rem;">
+                        <div class="progress-fill" id="disease-progress" style="width: 0%;"></div>
+                    </div>
+                </div>
+
+                <!-- Botanical Advisory / Treatment Card -->
+                <div class="advisory-box" id="advisory-box">
+                    <div class="advisory-title" id="advisory-title">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="16" x2="12" y2="12"></line>
+                            <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                        </svg>
+                        <span>Botanical Insights & Action Plan</span>
+                    </div>
+                    <div class="advisory-content" id="advisory-content">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+
+                <div class="result-actions">
+                    <button class="btn btn-secondary btn-sm" id="btn-scan-again">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="1 4 1 10 7 10"></polyline>
+                            <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+                        </svg>
+                        <span>Scan Another</span>
+                    </button>
+                    <button class="btn btn-secondary btn-sm" id="btn-copy-report">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </svg>
+                        <span id="copy-btn-text">Copy Report</span>
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
 <script>
-    // --- Constants ---
-    const uploadForm = document.getElementById('upload-form');
+    // --- DISEASE TREATMENT KNOWLEDGE BASE ---
+    const DISEASE_KNOWLEDGE = {
+        "Healthy leaf": {
+            status: "healthy",
+            title: "Optimal Foliage Condition",
+            description: "No pathological symptoms detected. The foliage shows vibrant cellular chlorophyll distribution.",
+            tips: [
+                "Maintain standard watering schedule (avoid overwatering).",
+                "Ensure adequate ambient sunlight and balanced soil aeration.",
+                "Continue routine preventive inspection."
+            ]
+        },
+        "Healthy fruit": {
+            status: "healthy",
+            title: "Healthy Fruit Development",
+            description: "The fruit exhibits normal epidermis development without lesions or fungal colonization.",
+            tips: [
+                "Protect ripening fruit from physical abrasions and pest feeding.",
+                "Ensure sufficient potassium and calcium for cell wall integrity."
+            ]
+        },
+        "Healthy stem": {
+            status: "healthy",
+            title: "Intact Vascular System",
+            description: "Stem tissue shows strong structural integrity with no signs of canker, oozing, or fungal girdling.",
+            tips: [
+                "Avoid mechanical injury during weeding or pruning.",
+                "Apply clean, sterilized pruning shears when shaping."
+            ]
+        },
+        "Leaf spot": {
+            status: "disease",
+            title: "Fungal/Bacterial Leaf Spot Alert",
+            description: "Characterized by localized brown or necrotic spots surrounded by chlorotic (yellow) halos.",
+            tips: [
+                "Prune and discard infected leaves immediately to prevent spore dispersal.",
+                "Water at the soil base — avoid wetting the foliage.",
+                "Apply organic copper-based fungicide or neem oil spray in cool evening hours."
+            ]
+        },
+        "Leaf rust": {
+            status: "disease",
+            title: "Rust Fungal Infestation (Pucciniales)",
+            description: "Produces orange, red, or rust-colored pustules on the lower leaf surface, reducing photosynthesis.",
+            tips: [
+                "Isolate or prune heavily rusted branches.",
+                "Increase air circulation between plants to reduce localized humidity.",
+                "Treat with sulfur fungicide or bio-fungicide containing Bacillus subtilis."
+            ]
+        },
+        "Powdery Mildew": {
+            status: "disease",
+            title: "Powdery Mildew Fungal Infection",
+            description: "Forms a superficial talcum powder-like white mycelial coating over leaves and new shoots.",
+            tips: [
+                "Spray with a dilute solution of potassium bicarbonate or milk-water solution (1:9 ratio).",
+                "Ensure the plant receives ample sunlight as powdery mildew thrives in shaded, warm, dry-leaf conditions.",
+                "Use neem oil or bio-fungicide early in the infection cycle."
+            ]
+        },
+        "Fruit Anthracnose": {
+            status: "disease",
+            title: "Anthracnose Fruit Rot (Colletotrichum)",
+            description: "Sunken, circular dark lesions that expand and soften fruit tissue with concentric rings of fungal spores.",
+            tips: [
+                "Immediately remove and dispose of infected fruits (do not compost).",
+                "Apply a preventive copper fungicide before rain periods.",
+                "Improve canopy airflow to accelerate fruit drying after rainfall."
+            ]
+        },
+        "Leaf anthracnose": {
+            status: "disease",
+            title: "Anthracnose Foliage Blight",
+            description: "Irregular dark, water-soaked lesions along leaf veins resulting in leaf distortion and defoliation.",
+            tips: [
+                "Rake up fallen diseased leaves from underneath the canopy.",
+                "Spray protective copper or chlorothalonil fungicide during budding/early leaf emergence."
+            ]
+        },
+        "canker": {
+            status: "disease",
+            title: "Bacterial / Fungal Canker",
+            description: "Destructive localized bark necrosis causing sunken, cracked, or gummy lesions on woody branches.",
+            tips: [
+                "Prune infected branches at least 4-6 inches below the visible canker boundary.",
+                "Sterilize cutting tools with 70% alcohol between cuts.",
+                "Protect bark wounds with wound sealant or copper paint during dormancy."
+            ]
+        },
+        "Gummosis": {
+            status: "disease",
+            title: "Gummosis (Bark Exudation)",
+            description: "Exudation of sticky sap/gum from trunk or branches often caused by Phytophthora or wood-boring stress.",
+            tips: [
+                "Improve soil drainage around root crown to eliminate standing water.",
+                "Carefully scrape away diseased bark and paint trunk with copper Bordeaux paste."
+            ]
+        },
+        "Black knot": {
+            status: "disease",
+            title: "Black Knot Fungus (Apiosporina morbosa)",
+            description: "Hard, elongated black swellings/galls on twigs and branches that stunt shoot growth.",
+            tips: [
+                "Prune knots in late winter during plant dormancy.",
+                "Burn or deeply bury all pruned infected wood."
+            ]
+        },
+        "Brown rot": {
+            status: "disease",
+            title: "Brown Rot (Monilinia fructicola)",
+            description: "Rapid brown softening of ripening fruit with tan powdery spore tufts.",
+            tips: [
+                "Thin crowded fruits to prevent touching.",
+                "Remove 'mummified' shriveled fruits from trees in autumn."
+            ]
+        },
+        "Mosaic virus": {
+            status: "disease",
+            title: "Mosaic Viral Complex",
+            description: "Mottled yellow-green mosaic patterns, crinkled foliage, and stunted vegetative growth.",
+            tips: [
+                "Viruses cannot be cured with fungicides — rogue and destroy severely stunted plants.",
+                "Control sap-sucking insect vectors (aphids, thrips, whiteflies) with insecticidal soap."
+            ]
+        },
+        "Scab": {
+            status: "disease",
+            title: "Plant Scab Infection",
+            description: "Olive-green to velvety dark brown scabby lesions on leaves and fruit skin.",
+            tips: [
+                "Rake fallen foliage in autumn to eliminate overwintering fungal ascospores.",
+                "Apply sulfur or captan fungicides during early spring shoot expansion."
+            ]
+        },
+        "Stem rust": {
+            status: "disease",
+            title: "Vascular Stem Rust",
+            description: "Elongated reddish-brown pustules erupting through stem epidermis.",
+            tips: [
+                "Eradicate alternate host weeds nearby.",
+                "Apply systemic fungicides if infestation is identified in early stages."
+            ]
+        }
+    };
+
+    // --- DOM Elements ---
+    const tabBtns = document.querySelectorAll('.tab-btn');
+    const modePanels = document.querySelectorAll('.mode-panel');
+    const dropzone = document.getElementById('dropzone');
     const fileInput = document.getElementById('file-input');
-    const fileLabelText = document.getElementById('file-label-text');
     
-    const previewContainer = document.getElementById('image-preview-container');
-    const previewImage = document.getElementById('image-preview');
-    const resultContainer = document.getElementById('result-container');
-    const loadingSpinner = document.getElementById('loading-spinner');
-    
-    // Webcam
+    // Camera Elements
     const startCamBtn = document.getElementById('start-cam-btn');
-    const videoElement = document.getElementById('webcam-feed');
     const captureBtn = document.getElementById('capture-btn');
+    const videoElement = document.getElementById('webcam-feed');
     const captureCanvas = document.getElementById('capture-canvas');
+    const scanLaser = document.getElementById('scan-laser');
+    const cameraPlaceholder = document.getElementById('camera-placeholder');
     const webcamError = document.getElementById('webcam-error');
     let videoStream = null;
 
-    // --- 1. Webcam Logic ---
+    // Results & Loading
+    const loadingBox = document.getElementById('loading-box');
+    const resultSection = document.getElementById('result-section');
+    const previewImg = document.getElementById('preview-img');
+    const statusBadgeContainer = document.getElementById('status-badge-container');
+    const partNameEl = document.getElementById('part-name');
+    const partConfidenceEl = document.getElementById('part-confidence');
+    const partProgressEl = document.getElementById('part-progress');
+    const diseaseNameEl = document.getElementById('disease-name');
+    const diseaseConfidenceEl = document.getElementById('disease-confidence');
+    const diseaseProgressEl = document.getElementById('disease-progress');
+    const inferenceTimeEl = document.getElementById('inference-time');
+    const advisoryBox = document.getElementById('advisory-box');
+    const advisoryTitle = document.getElementById('advisory-title');
+    const advisoryContent = document.getElementById('advisory-content');
+    const btnScanAgain = document.getElementById('btn-scan-again');
+    const btnCopyReport = document.getElementById('btn-copy-report');
+    const copyBtnText = document.getElementById('copy-btn-text');
+
+    let currentReport = null;
+
+    // --- 1. Tab Navigation ---
+    tabBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            tabBtns.forEach(b => b.classList.remove('active'));
+            modePanels.forEach(p => p.classList.remove('active'));
+            
+            btn.classList.add('active');
+            const targetId = btn.getAttribute('data-tab');
+            document.getElementById(targetId).classList.add('active');
+
+            // If leaving camera tab, pause/stop stream to save resources
+            if (targetId !== 'camera-panel' && videoStream) {
+                stopWebcam();
+            }
+        });
+    });
+
+    // --- 2. Drag and Drop File Upload ---
+    dropzone.addEventListener('click', () => fileInput.click());
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropzone.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.classList.add('dragover');
+        });
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropzone.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.classList.remove('dragover');
+        });
+    });
+
+    dropzone.addEventListener('drop', (e) => {
+        const dt = e.dataTransfer;
+        if (dt.files && dt.files.length > 0) {
+            handleSelectedFile(dt.files[0]);
+        }
+    });
+
+    fileInput.addEventListener('change', () => {
+        if (fileInput.files.length > 0) {
+            handleSelectedFile(fileInput.files[0]);
+        }
+    });
+
+    function handleSelectedFile(file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            previewImg.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+
+        const formData = new FormData();
+        formData.append('file', file);
+        sendPrediction(formData);
+    }
+
+    // --- 3. Camera Controls ---
     startCamBtn.addEventListener('click', () => {
         if (!videoStream) {
             startWebcam();
@@ -72,97 +528,107 @@
 
     async function startWebcam() {
         startCamBtn.disabled = true;
-        startCamBtn.textContent = "Starting...";
+        startCamBtn.innerHTML = `<span>Connecting...</span>`;
+        webcamError.classList.add('hidden');
+
         try {
-            videoStream = await navigator.mediaDevices.getUserMedia({ 
-                video: { facingMode: 'environment' } 
+            videoStream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
             });
-            videoElement.srcObject = videoStream;
-            videoElement.classList.remove('hidden');
-            captureBtn.classList.remove('hidden');
-            webcamError.classList.add('hidden');
-            startCamBtn.textContent = "Stop Camera";
+            attachVideoStream();
         } catch (err) {
-            console.error("Error accessing webcam:", err);
+            console.warn("Retrying default camera without constraints:", err);
             try {
                 videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
-                videoElement.srcObject = videoStream;
-                videoElement.classList.remove('hidden');
-                captureBtn.classList.remove('hidden');
-                webcamError.classList.add('hidden');
-                startCamBtn.textContent = "Stop Camera";
+                attachVideoStream();
             } catch (err2) {
-                webcamError.textContent = "Could not access webcam. Please check permissions.";
+                webcamError.textContent = "Camera access denied or unavailable. Please check browser permissions.";
                 webcamError.classList.remove('hidden');
-                startCamBtn.textContent = "Start Camera";
+                startCamBtn.innerHTML = `<span>Start Camera</span>`;
+                startCamBtn.disabled = false;
             }
-        } finally {
-            startCamBtn.disabled = false;
         }
+    }
+
+    function attachVideoStream() {
+        videoElement.srcObject = videoStream;
+        videoElement.classList.remove('hidden');
+        cameraPlaceholder.classList.add('hidden');
+        scanLaser.classList.remove('hidden');
+        captureBtn.classList.remove('hidden');
+        startCamBtn.innerHTML = `
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="6" y="4" width="4" height="16"></rect>
+                <rect x="14" y="4" width="4" height="16"></rect>
+            </svg>
+            <span>Stop Camera</span>
+        `;
+        startCamBtn.disabled = false;
     }
 
     function stopWebcam() {
         if (videoStream) {
-            videoStream.getTracks().forEach(track => track.stop());
+            videoStream.getTracks().forEach(t => t.stop());
             videoStream = null;
             videoElement.srcObject = null;
             videoElement.classList.add('hidden');
+            cameraPlaceholder.classList.remove('hidden');
+            scanLaser.classList.add('hidden');
             captureBtn.classList.add('hidden');
-            startCamBtn.textContent = "Start Camera";
+            startCamBtn.innerHTML = `
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                </svg>
+                <span>Start Camera</span>
+            `;
         }
     }
 
-    // --- 2. File Upload Logic ---
-    fileInput.addEventListener('change', () => {
-        if (fileInput.files.length > 0) {
-            fileLabelText.textContent = fileInput.files[0].name;
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                previewImage.src = e.target.result;
-                previewContainer.classList.remove('hidden');
-            };
-            reader.readAsDataURL(fileInput.files[0]);
-            resultContainer.classList.add('hidden');
-        }
-    });
-
-    uploadForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        if (fileInput.files.length === 0) return;
-        const formData = new FormData();
-        formData.append('file', fileInput.files[0]);
-        sendPrediction(formData);
-    });
-
-    // --- 3. Webcam Capture Logic ---
     captureBtn.addEventListener('click', () => {
         if (!videoStream) return;
-        
-        captureCanvas.width = videoElement.videoWidth;
-        captureCanvas.height = videoElement.videoHeight;
-        
-        const context = captureCanvas.getContext('2d');
-        context.drawImage(videoElement, 0, 0, captureCanvas.width, captureCanvas.height);
-        
-        previewImage.src = captureCanvas.toDataURL('image/png');
-        previewContainer.classList.remove('hidden');
-        
+
+        captureCanvas.width = videoElement.videoWidth || 640;
+        captureCanvas.height = videoElement.videoHeight || 480;
+
+        const ctx = captureCanvas.getContext('2d');
+        ctx.drawImage(videoElement, 0, 0, captureCanvas.width, captureCanvas.height);
+
+        previewImg.src = captureCanvas.toDataURL('image/png');
+
         captureCanvas.toBlob((blob) => {
             const formData = new FormData();
             formData.append('file', blob, 'webcam-capture.png');
             sendPrediction(formData);
-        }, 'image/png');
+        }, 'image/jpeg', 0.95);
     });
 
-    // --- 4. Shared Prediction Logic ---
+    // --- 4. Demo Samples Quick-Test ---
+    document.querySelectorAll('.sample-card').forEach(card => {
+        card.addEventListener('click', async () => {
+            const imgSrc = card.getAttribute('data-sample-src');
+            previewImg.src = imgSrc;
+
+            try {
+                // Fetch image file as blob and send to predict API
+                const response = await fetch(imgSrc);
+                const blob = await response.blob();
+                const formData = new FormData();
+                formData.append('file', blob, 'sample.jpg');
+                sendPrediction(formData);
+            } catch (err) {
+                console.error("Failed to load sample image:", err);
+            }
+        });
+    });
+
+    // --- 5. Prediction API Request & Response Display ---
     async function sendPrediction(formData) {
-        // Clear old results and show spinner
-        resultContainer.classList.add('hidden');
-        resultContainer.innerHTML = '';
-        loadingSpinner.classList.remove('hidden');
-        
-        // Hide preview to make space for spinner, or you can keep it
-        // previewContainer.classList.add('hidden'); 
+        // Show loading spinner
+        resultSection.classList.add('hidden');
+        loadingBox.classList.remove('hidden');
+
+        // Scroll smoothly to loading box
+        loadingBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
         try {
             const response = await fetch('/predict', {
@@ -171,36 +637,141 @@
             });
 
             if (!response.ok) {
-                const err = await response.json();
-                throw new Error(err.error || 'Prediction failed');
+                const errData = await response.json();
+                throw new Error(errData.error || 'Diagnostic inference failed');
             }
 
             const data = await response.json();
-            
-            let resultHTML = '';
-            if (data.part_name === 'Not_a_plant') {
-                resultHTML = `
-                    <h2 class="result-warning">Result: Not a Plant</h2>
-                    <p>Confidence: <strong>${data.part_confidence.toFixed(2)}%</strong></p>
-                `;
-            } else {
-                resultHTML = `
-                    <h2 class="result-success">Prediction Result</h2>
-                    <p>Predicted Part: <strong>${data.part_name}</strong> (Confidence: ${data.part_confidence.toFixed(2)}%)</p>
-                    <p>Predicted Disease: <strong>${data.disease_name}</strong> (Confidence: ${data.disease_confidence.toFixed(2)}%)</p>
-                `;
-            }
-            resultHTML += `<p>Inference Time: <strong>${data.inference_time_ms.toFixed(2)} ms</strong></p>`;
-            resultContainer.innerHTML = resultHTML;
+            currentReport = data;
+            renderDiagnosis(data);
 
         } catch (error) {
-            resultContainer.innerHTML = `<h2 class="result-error">Error</h2><p>${error.message}</p>`;
+            alert('Error running diagnostics: ' + error.message);
         } finally {
-            loadingSpinner.classList.add('hidden');
-            resultContainer.classList.remove('hidden');
-            // Ensure preview is visible with results
-            previewContainer.classList.remove('hidden'); 
+            loadingBox.classList.add('hidden');
+            resultSection.classList.remove('hidden');
+            resultSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
     }
+
+    function renderDiagnosis(data) {
+        // Latency
+        inferenceTimeEl.textContent = `${data.inference_time_ms.toFixed(1)} ms`;
+
+        // Plant Part details
+        partNameEl.textContent = data.part_name.replace(/_/g, ' ');
+        const partConf = data.part_confidence || 0;
+        partConfidenceEl.textContent = `${partConf.toFixed(1)}%`;
+        partProgressEl.style.width = `${Math.min(partConf, 100)}%`;
+
+        const isNotPlant = data.part_name === 'Not_a_plant';
+        const isHealthy = data.disease_name && data.disease_name.toLowerCase().includes('healthy');
+
+        if (isNotPlant) {
+            // Not a plant state
+            statusBadgeContainer.innerHTML = `
+                <span class="status-badge status-neutral">
+                    <span>⚠️ Non-Botanical Object</span>
+                </span>
+            `;
+            diseaseNameEl.textContent = "N/A (Non-plant specimen)";
+            diseaseConfidenceEl.textContent = "—";
+            diseaseProgressEl.style.width = "0%";
+            partProgressEl.classList.add('danger');
+
+            advisoryBox.className = "advisory-box";
+            advisoryTitle.innerHTML = `
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+                <span>Detection Advisory</span>
+            `;
+            advisoryContent.innerHTML = `
+                <p>The neural network classified this image with high confidence as non-plant material. For accurate disease diagnosis, please photograph an isolated leaf, stem, or fruit in good lighting.</p>
+            `;
+        } else {
+            // Botanical detected
+            partProgressEl.classList.remove('danger');
+            const dName = data.disease_name || "Unknown";
+            const dConf = data.disease_confidence || 0;
+
+            diseaseNameEl.textContent = dName;
+            diseaseConfidenceEl.textContent = `${dConf.toFixed(1)}%`;
+            diseaseProgressEl.style.width = `${Math.min(dConf, 100)}%`;
+
+            if (isHealthy) {
+                statusBadgeContainer.innerHTML = `
+                    <span class="status-badge status-healthy">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                        <span>Healthy Specimen</span>
+                    </span>
+                `;
+                diseaseProgressEl.classList.remove('danger');
+            } else {
+                statusBadgeContainer.innerHTML = `
+                    <span class="status-badge status-disease">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="15" y1="9" x2="9" y2="15"></line>
+                            <line x1="9" y1="9" x2="15" y2="15"></line>
+                        </svg>
+                        <span>Pathology Detected</span>
+                    </span>
+                `;
+                diseaseProgressEl.classList.add('danger');
+            }
+
+            // Advisory & Recommendations lookup
+            const knowledge = DISEASE_KNOWLEDGE[dName];
+            if (knowledge) {
+                advisoryBox.className = isHealthy ? "advisory-box" : "advisory-box alert-danger";
+                advisoryTitle.innerHTML = `
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                    </svg>
+                    <span>${knowledge.title}</span>
+                `;
+
+                let tipsHTML = '';
+                if (knowledge.tips && knowledge.tips.length > 0) {
+                    tipsHTML = `<ul>${knowledge.tips.map(t => `<li>${t}</li>`).join('')}</ul>`;
+                }
+
+                advisoryContent.innerHTML = `
+                    <p>${knowledge.description}</p>
+                    ${tipsHTML}
+                `;
+            } else {
+                advisoryBox.className = "advisory-box";
+                advisoryContent.innerHTML = `
+                    <p>Diagnosis: <strong>${dName}</strong>. Ensure regular monitoring, inspect adjacent foliage for symptoms, and consult an agronomist if symptoms propagate.</p>
+                `;
+            }
+        }
+    }
+
+    // --- 6. Utility Actions ---
+    btnScanAgain.addEventListener('click', () => {
+        resultSection.classList.add('hidden');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
+    btnCopyReport.addEventListener('copy', (e) => e.preventDefault());
+    btnCopyReport.addEventListener('click', () => {
+        if (!currentReport) return;
+        const reportText = `🌿 FloraScan AI Diagnostic Report\n` +
+            `Part: ${currentReport.part_name} (${currentReport.part_confidence.toFixed(1)}%)\n` +
+            `Condition: ${currentReport.disease_name} (${currentReport.disease_confidence.toFixed(1)}%)\n` +
+            `Latency: ${currentReport.inference_time_ms.toFixed(1)}ms`;
+        
+        navigator.clipboard.writeText(reportText).then(() => {
+            copyBtnText.textContent = "Copied!";
+            setTimeout(() => { copyBtnText.textContent = "Copy Report"; }, 2000);
+        });
+    });
 </script>
 {% endblock %}

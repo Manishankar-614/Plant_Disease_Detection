@@ -21,9 +21,11 @@ history.db
 # Ignore the contents of the model folder...
 model_output_multi/*
 
-# ...BUT un-ignore (track) this specific file
+# ...BUT un-ignore (track) these specific model artifacts
 !model_output_multi/final_multitask_model.h5
-
-# Keep the label JSONs (we need them)
+!model_output_multi/model.tflite
 !model_output_multi/disease_labels.json
 !model_output_multi/part_labels.json
+
+# Archives
+*.zip

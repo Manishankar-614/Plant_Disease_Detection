@@ -24,7 +24,7 @@ This project trains a MobileNetV2-based multi-task model to classify both the pl
 
 4.  **Download the Dataset**
     * Download the `dataset_split.zip` file from Google Drive:
-    * **(https://drive.google.com/file/d/1xsvLHa7FBgwFQ9ZaIH2YuHuvw_5EowaV/view?usp=sharing)**
+    * [Download dataset_split.zip](https://drive.google.com/file/d/1xsvLHa7FBgwFQ9ZaIH2YuHuvw_5EowaV/view?usp=sharing)
     * Unzip the file inside the project folder. Your project directory should now look like this:
         ```
         your-project-name/
